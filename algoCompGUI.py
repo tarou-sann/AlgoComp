@@ -76,12 +76,13 @@ class AlgorithmSimulatorGUI:
         ttk.Button(self.button_frame, text="Clear", command=self.clear_form).pack(side="left", padx=5)
         ttk.Button(self.button_frame, text="Exit", command=root.destroy).pack(side="right", padx=5)
         
-        # Output frame - MAKE THIS BIGGER
+        # Output frame - Make it proportionally larger
         self.output_frame = ttk.LabelFrame(self.main_frame, text="Output", padding="10")
         self.output_frame.pack(fill="both", expand=True, padx=5, pady=5)
         
-        # Increased height from 10 to 15
-        self.output_text = scrolledtext.ScrolledText(self.output_frame, width=80, height=15)
+        # Use a more reasonable height value (20-25 is typically good for visibility)
+        # while still allowing expansion
+        self.output_text = scrolledtext.ScrolledText(self.output_frame, width=80, height=25)
         self.output_text.pack(fill="both", expand=True, pady=5)
         
         # Configure text tags for formatting
@@ -108,15 +109,19 @@ class AlgorithmSimulatorGUI:
             self.n_vertices.set("5")
             sample_edges = "1 2 2\n1 3 3\n2 3 1\n2 4 3\n3 4 2\n3 5 4\n4 5 5"
             self.edges_text.insert(tk.END, sample_edges)
-        elif algo_type == "3":  # Divide and Conquer algorithm (Merge Sort only)
+        elif algo_type == "3":  # Merge Sort
             # We don't need n_vertices for merge sort
             self.n_vertices.set("")
             sample_array = "38\n27\n43\n3\n9\n82\n10"
             self.edges_text.insert(tk.END, sample_array)
-        elif algo_type == "4":
-            messagebox.showinfo("Not Implemented", "Sample data for Brute Force not available yet")
-        elif algo_type == "5":
-            messagebox.showinfo("Not Implemented", "Sample data for Dynamic Programming not available yet")
+        elif algo_type == "4":  # Brute Force
+            self.n_vertices.set("")
+            sample_array = "8\n2\n5\n1\n9\n3"
+            self.edges_text.insert(tk.END, sample_array)
+        elif algo_type == "5":  # Dynamic Programming
+            self.n_vertices.set("")
+            sample_text = "ABCBDAB\nBDCABA"  # Two sequences for LCS
+            self.edges_text.insert(tk.END, sample_text)
 
     def select_dc_algorithm(self):
         """Show dialog to select specific Divide and Conquer algorithm"""
@@ -176,20 +181,25 @@ class AlgorithmSimulatorGUI:
             # Get input values
             algo_type = self.selected_algo.get()
             
-            # For Merge Sort (Divide and Conquer)
-            if algo_type == "3":
+            # For algorithms that use elements instead of graph
+            if algo_type in ["3", "4", "5"]:  # Merge Sort, Brute Force, or Dynamic Programming
                 # Parse inputs
                 elements_text = self.edges_text.get(1.0, tk.END).strip()
                 if not elements_text:
-                    messagebox.showerror("Input Error", "Please enter at least one element")
+                    messagebox.showerror("Input Error", "Please enter input data")
                     return
                 
-                # Run Merge Sort directly
-                self.run_merge_sort(elements_text)
+                # Run the appropriate algorithm
+                if algo_type == "3":
+                    self.run_merge_sort(elements_text)
+                elif algo_type == "4":
+                    self.run_brute_force(elements_text)
+                elif algo_type == "5":
+                    self.run_dynamic_programming(elements_text)
                 return
             
             # For other algorithms, continue with existing logic
-            if algo_type != "3" and not self.n_vertices.get().strip():
+            if not self.n_vertices.get().strip():
                 messagebox.showerror("Input Error", "Please specify the number of vertices")
                 return
             
@@ -208,10 +218,6 @@ class AlgorithmSimulatorGUI:
                 elif algo_type == "2":
                     n_vertices = int(self.n_vertices.get())
                     self.run_reverse_delete(n_vertices, edges_text)
-                elif algo_type == "4":
-                    messagebox.showinfo("Not Implemented", "Brute Force Algorithm not implemented yet")
-                elif algo_type == "5":
-                    messagebox.showinfo("Not Implemented", "Dynamic Programming Algorithm not implemented yet")
             
             # Display captured output
             self.output_text.insert(tk.END, buffer.getvalue())
@@ -304,11 +310,20 @@ class AlgorithmSimulatorGUI:
         self.output_text.insert(tk.END, f"Initial array: {merge_sort.array}\n")
         self.output_text.insert(tk.END, f"Sorted array: {sorted_array}\n")
         self.output_text.insert(tk.END, "=" * 50 + "\n")
+
+    def create_merge_sort_visualization_window(self, steps):
+        """Create a new window with visualization for merge sort algorithm"""
+        # Create a new window for visualization
+        if self.viz_window is not None and self.viz_window.winfo_exists():
+            self.viz_window.destroy()
         
-        # Ask if user wants to see the full graphical visualization
-        if messagebox.askyesno("Visualization", 
-                             "Would you like to see the detailed graphical visualization of the algorithm steps?"):
-            self.ask_for_merge_sort_visualization(steps)
+        self.viz_window = tk.Toplevel(self.root)
+        self.viz_window.title("Merge Sort Visualization")
+        self.viz_window.geometry("1000x700")
+        self.viz_window.minsize(800, 600)  # Set minimum size
+        
+        # Create visualization
+        self.create_merge_sort_visualization(self.viz_window, steps)
 
     def ask_for_merge_sort_visualization(self, steps):
         """Ask user if they want to see merge sort visualization"""
@@ -785,6 +800,413 @@ class AlgorithmSimulatorGUI:
         """Navigate to a specific step in the visualization"""
         self.current_step = step_idx
         update_func(step_idx)
+
+    def run_brute_force(self, elements_text):
+        """Run Brute Force sorting algorithm with the provided inputs"""
+        # Parse and prepare array
+        array = []
+        element_lines = elements_text.strip().split('\n')
+        
+        for line in element_lines:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                value = float(line)
+                # Convert to int if possible for better visualization
+                if value.is_integer():
+                    value = int(value)
+                array.append(value)
+            except ValueError:
+                continue
+        
+        if len(array) < 2:
+            self.output_text.insert(tk.END, "At least 2 elements are needed for sorting.\n")
+            return
+        
+        # Display initial array
+        self.output_text.insert(tk.END, f"Initial array: {array}\n\n")
+        self.output_text.insert(tk.END, "BRUTE FORCE SORTING ALGORITHM:\n")
+        self.output_text.insert(tk.END, "=" * 50 + "\n\n")
+        
+        # Display algorithm process
+        self.output_text.insert(tk.END, "This algorithm compares each element with every other element\n")
+        self.output_text.insert(tk.END, "and swaps them if they are in the wrong order.\n\n")
+        
+        # Perform bubble sort (as an example of brute force sorting)
+        steps = []
+        sorted_array = array.copy()
+        n = len(sorted_array)
+        
+        # Track the number of comparisons and swaps
+        comparisons = 0
+        swaps = 0
+        
+        # Record the initial state
+        steps.append({
+            "array": sorted_array.copy(),
+            "i": -1,
+            "j": -1,
+            "comparison": None,
+            "swap": None,
+            "comparisons": comparisons,
+            "swaps": swaps,
+            "phase": "initial"
+        })
+        
+        # Perform bubble sort
+        for i in range(n):
+            # Flag to optimize if no swaps occur in a pass
+            swapped = False
+            
+            for j in range(0, n - i - 1):
+                # Record the state before comparison
+                steps.append({
+                    "array": sorted_array.copy(),
+                    "i": i,
+                    "j": j,
+                    "comparison": [j, j+1],
+                    "swap": None,
+                    "comparisons": comparisons,
+                    "swaps": swaps,
+                    "phase": "comparison"
+                })
+                
+                # Increment comparison counter
+                comparisons += 1
+                
+                # Compare adjacent elements
+                if sorted_array[j] > sorted_array[j + 1]:
+                    # Record the state before swap
+                    steps.append({
+                        "array": sorted_array.copy(),
+                        "i": i,
+                        "j": j,
+                        "comparison": [j, j+1],
+                        "swap": [j, j+1],
+                        "comparisons": comparisons,
+                        "swaps": swaps,
+                        "phase": "swap_needed"
+                    })
+                    
+                    # Swap elements
+                    sorted_array[j], sorted_array[j + 1] = sorted_array[j + 1], sorted_array[j]
+                    swapped = True
+                    swaps += 1
+                    
+                    # Record the state after swap
+                    steps.append({
+                        "array": sorted_array.copy(),
+                        "i": i,
+                        "j": j,
+                        "comparison": [j, j+1],
+                        "swap": [j, j+1],
+                        "comparisons": comparisons,
+                        "swaps": swaps,
+                        "phase": "swap_complete"
+                    })
+                else:
+                    # Record the state when no swap is needed
+                    steps.append({
+                        "array": sorted_array.copy(),
+                        "i": i,
+                        "j": j,
+                        "comparison": [j, j+1],
+                        "swap": None,
+                        "comparisons": comparisons,
+                        "swaps": swaps,
+                        "phase": "no_swap"
+                    })
+            
+            # If no swaps occurred in this pass, the array is already sorted
+            if not swapped:
+                break
+        
+        # Record the final state
+        steps.append({
+            "array": sorted_array.copy(),
+            "i": -1,
+            "j": -1,
+            "comparison": None,
+            "swap": None,
+            "comparisons": comparisons,
+            "swaps": swaps,
+            "phase": "final"
+        })
+        
+        # Display the steps in the output text area
+        for i, step in enumerate(steps):
+            phase = step["phase"]
+            
+            if phase == "initial":
+                self.output_text.insert(tk.END, "Starting the sorting process with bubble sort algorithm\n\n")
+                self.output_text.insert(tk.END, f"Array: {step['array']}\n\n")
+                
+            elif phase == "comparison":
+                j = step["j"]
+                self.output_text.insert(tk.END, f"Pass {step['i']+1}, Step {j+1}: ", "bold")
+                self.output_text.insert(tk.END, f"Comparing elements at positions {j} and {j+1}\n")
+                self.output_text.insert(tk.END, f"   {step['array'][j]} <=> {step['array'][j+1]}\n")
+                
+            elif phase == "swap_needed":
+                j = step["j"]
+                self.output_text.insert(tk.END, f"   {step['array'][j]} > {step['array'][j+1]}, need to swap\n", "red")
+                
+            elif phase == "swap_complete":
+                j = step["j"]
+                prev_array = steps[i-1]["array"]
+                self.output_text.insert(tk.END, f"   Swapped: {prev_array[j]} and {prev_array[j+1]}\n", "green")
+                self.output_text.insert(tk.END, f"   Array after swap: {step['array']}\n\n")
+                
+            elif phase == "no_swap":
+                j = step["j"]
+                self.output_text.insert(tk.END, f"   {step['array'][j]} <= {step['array'][j+1]}, no swap needed\n", "blue")
+                self.output_text.insert(tk.END, f"   Array remains: {step['array']}\n\n")
+                
+            elif phase == "final":
+                self.output_text.insert(tk.END, "\nSorting complete!\n", "bold")
+                self.output_text.insert(tk.END, f"Final array: {step['array']}\n")
+                self.output_text.insert(tk.END, f"Total comparisons: {step['comparisons']}\n")
+                self.output_text.insert(tk.END, f"Total swaps: {step['swaps']}\n")
+        
+        # Display final results prominently
+        self.output_text.insert(tk.END, "\n" + "=" * 50 + "\n")
+        self.output_text.insert(tk.END, "BRUTE FORCE SORTING RESULTS:\n", "bold")
+        self.output_text.insert(tk.END, "=" * 50 + "\n")
+        self.output_text.insert(tk.END, f"Initial array: {array}\n")
+        self.output_text.insert(tk.END, f"Sorted array: {sorted_array}\n")
+        self.output_text.insert(tk.END, f"Comparisons made: {comparisons}\n")
+        self.output_text.insert(tk.END, f"Swaps performed: {swaps}\n")
+        self.output_text.insert(tk.END, "Time Complexity: O(n²)\n")
+        self.output_text.insert(tk.END, "Space Complexity: O(1)\n")
+        self.output_text.insert(tk.END, "=" * 50 + "\n")
+
+    def run_dynamic_programming(self, input_text):
+        """Run the Longest Common Subsequence (LCS) dynamic programming algorithm"""
+        # Split the input into two sequences
+        sequences = input_text.strip().split('\n')
+        if len(sequences) < 2:
+            self.output_text.insert(tk.END, "Error: Two sequences are required for LCS algorithm.\n")
+            self.output_text.insert(tk.END, "Enter one sequence per line.\n")
+            return
+        
+        # Get the two sequences
+        X = sequences[0].strip()
+        Y = sequences[1].strip()
+        
+        if not X or not Y:
+            self.output_text.insert(tk.END, "Error: Both sequences must not be empty.\n")
+            return
+        
+        # Display initial information
+        self.output_text.insert(tk.END, "LONGEST COMMON SUBSEQUENCE (LCS) ALGORITHM\n")
+        self.output_text.insert(tk.END, "=" * 50 + "\n\n")
+        self.output_text.insert(tk.END, f"Sequence X: {X}\n")
+        self.output_text.insert(tk.END, f"Sequence Y: {Y}\n\n")
+        
+        # Initialize LCS table and steps
+        m = len(X)
+        n = len(Y)
+        lcs_table = [[0 for _ in range(n+1)] for _ in range(m+1)]
+        steps = []
+        
+        # Record initial state
+        steps.append({
+            "phase": "initial",
+            "table": [row[:] for row in lcs_table],
+            "i": -1,
+            "j": -1,
+            "X": X,
+            "Y": Y,
+            "current_chars": None,
+            "match": None,
+            "lcs_length": 0,
+            "status": "Initializing LCS table with zeros"
+        })
+        
+        # Fill LCS table and record steps
+        for i in range(1, m+1):
+            for j in range(1, n+1):
+                # Record state before comparison
+                steps.append({
+                    "phase": "comparison",
+                    "table": [row[:] for row in lcs_table],
+                    "i": i,
+                    "j": j,
+                    "X": X,
+                    "Y": Y,
+                    "current_chars": [X[i-1], Y[j-1]],
+                    "match": None,
+                    "lcs_length": lcs_table[i-1][j-1],
+                    "status": f"Comparing characters: '{X[i-1]}' and '{Y[j-1]}'"
+                })
+                
+                if X[i-1] == Y[j-1]:
+                    # Characters match
+                    lcs_table[i][j] = lcs_table[i-1][j-1] + 1
+                    steps.append({
+                        "phase": "match",
+                        "table": [row[:] for row in lcs_table],
+                        "i": i,
+                        "j": j,
+                        "X": X,
+                        "Y": Y,
+                        "current_chars": [X[i-1], Y[j-1]],
+                        "match": True,
+                        "lcs_length": lcs_table[i][j],
+                        "status": f"Match found: '{X[i-1]}' == '{Y[j-1]}', LCS length incremented to {lcs_table[i][j]}"
+                    })
+                else:
+                    # Characters don't match, take max from left or top
+                    lcs_table[i][j] = max(lcs_table[i-1][j], lcs_table[i][j-1])
+                    steps.append({
+                        "phase": "no_match",
+                        "table": [row[:] for row in lcs_table],
+                        "i": i,
+                        "j": j,
+                        "X": X,
+                        "Y": Y,
+                        "current_chars": [X[i-1], Y[j-1]],
+                        "match": False,
+                        "lcs_length": lcs_table[i][j],
+                        "status": f"No match: '{X[i-1]}' != '{Y[j-1]}', taking max({lcs_table[i-1][j]}, {lcs_table[i][j-1]}) = {lcs_table[i][j]}"
+                    })
+        
+        # Record final state
+        steps.append({
+            "phase": "final",
+            "table": [row[:] for row in lcs_table],
+            "i": m,
+            "j": n,
+            "X": X,
+            "Y": Y,
+            "current_chars": None,
+            "match": None,
+            "lcs_length": lcs_table[m][n],
+            "status": f"Completed LCS table. Length of LCS is {lcs_table[m][n]}"
+        })
+        
+        # Find one LCS (there could be multiple)
+        lcs = self.traceback_lcs(lcs_table, X, Y, m, n)
+        
+        # Display calculation process in the output text
+        self.output_text.insert(tk.END, "DYNAMIC PROGRAMMING CALCULATION PROCESS:\n")
+        self.output_text.insert(tk.END, "-" * 50 + "\n\n")
+        
+        # Show table headers
+        self.output_text.insert(tk.END, "LCS Table Construction:\n\n")
+        self.print_lcs_table_header(Y)
+        
+        for step in steps:
+            phase = step["phase"]
+            
+            if phase == "initial":
+                self.output_text.insert(tk.END, "Initial table filled with zeros:\n")
+                self.print_lcs_table(step["table"], X, Y)
+                self.output_text.insert(tk.END, "\n")
+                
+            elif phase == "comparison":
+                i, j = step["i"], step["j"]
+                x_char, y_char = step["current_chars"]
+                self.output_text.insert(tk.END, f"Step [{i},{j}]: Comparing '{x_char}' and '{y_char}'\n")
+                
+            elif phase == "match":
+                i, j = step["i"], step["j"]
+                x_char, y_char = step["current_chars"]
+                self.output_text.insert(tk.END, f"  Match found! Setting table[{i}][{j}] = table[{i-1}][{j-1}] + 1 = {step['lcs_length']}\n", "green")
+                
+            elif phase == "no_match":
+                i, j = step["i"], step["j"]
+                x_char, y_char = step["current_chars"]
+                self.output_text.insert(tk.END, f"  No match. Setting table[{i}][{j}] = max(table[{i-1}][{j}], table[{i}][{j-1}]) = {step['lcs_length']}\n", "red")
+                
+            elif phase == "final":
+                self.output_text.insert(tk.END, "\nFinal LCS table:\n")
+                self.print_lcs_table(step["table"], X, Y)
+                self.output_text.insert(tk.END, "\n")
+        
+        # Display tracing back the LCS
+        self.output_text.insert(tk.END, "TRACEBACK PROCESS TO FIND THE LCS:\n")
+        self.output_text.insert(tk.END, "-" * 50 + "\n\n")
+        
+        # Traceback animation
+        current_lcs = []
+        i, j = m, n
+        
+        while i > 0 and j > 0:
+            if X[i-1] == Y[j-1]:
+                # If current characters match, they're part of the LCS
+                current_lcs.insert(0, X[i-1])
+                self.output_text.insert(tk.END, f"At position ({i},{j}): Characters match ('{X[i-1]}'). Add to LCS.\n", "blue")
+                self.output_text.insert(tk.END, f"  Current LCS: {''.join(current_lcs)}\n")
+                self.output_text.insert(tk.END, f"  Moving diagonally to ({i-1},{j-1})\n\n")
+                i -= 1
+                j -= 1
+            elif lcs_table[i-1][j] >= lcs_table[i][j-1]:
+                # Move up
+                self.output_text.insert(tk.END, f"At position ({i},{j}): No match. table[{i-1}][{j}] >= table[{i}][{j-1}]\n")
+                self.output_text.insert(tk.END, f"  Moving up to ({i-1},{j})\n\n")
+                i -= 1
+            else:
+                # Move left
+                self.output_text.insert(tk.END, f"At position ({i},{j}): No match. table[{i-1}][{j}] < table[{i}][{j-1}]\n")
+                self.output_text.insert(tk.END, f"  Moving left to ({i},{j-1})\n\n")
+                j -= 1
+        
+        # Display final results prominently
+        self.output_text.insert(tk.END, "\n" + "=" * 50 + "\n")
+        self.output_text.insert(tk.END, "DYNAMIC PROGRAMMING RESULTS:\n", "bold")
+        self.output_text.insert(tk.END, "=" * 50 + "\n")
+        self.output_text.insert(tk.END, f"Sequence X: {X}\n")
+        self.output_text.insert(tk.END, f"Sequence Y: {Y}\n")
+        self.output_text.insert(tk.END, f"Longest Common Subsequence: {lcs}\n")
+        self.output_text.insert(tk.END, f"Length of LCS: {lcs_table[m][n]}\n")
+        self.output_text.insert(tk.END, "Time Complexity: O(m×n)\n")
+        self.output_text.insert(tk.END, "Space Complexity: O(m×n)\n")
+        self.output_text.insert(tk.END, "=" * 50 + "\n")
+
+    def traceback_lcs(self, dp_table, X, Y, i, j):
+        """Trace back through the DP table to find one LCS"""
+        if i == 0 or j == 0:
+            return ""
+        
+        if X[i-1] == Y[j-1]:
+            return self.traceback_lcs(dp_table, X, Y, i-1, j-1) + X[i-1]
+        
+        if dp_table[i-1][j] > dp_table[i][j-1]:
+            return self.traceback_lcs(dp_table, X, Y, i-1, j)
+        else:
+            return self.traceback_lcs(dp_table, X, Y, i, j-1)
+
+    def print_lcs_table_header(self, Y):
+        """Print the header row for the LCS table"""
+        header = "    |   | "
+        for char in Y:
+            header += f"{char} | "
+        self.output_text.insert(tk.END, header + "\n")
+        self.output_text.insert(tk.END, "-" * (len(header)) + "\n")
+
+    def print_lcs_table(self, table, X, Y):
+        """Print the LCS table in a formatted way"""
+        # Print header row with Y characters
+        header = "    |   | "
+        for char in Y:
+            header += f"{char} | "
+        self.output_text.insert(tk.END, header + "\n")
+        self.output_text.insert(tk.END, "-" * (len(header)) + "\n")
+        
+        # Print table rows
+        for i in range(len(table)):
+            if i == 0:
+                row = "    | "
+            else:
+                row = f" {X[i-1]} | "
+            
+            for j in range(len(table[0])):
+                row += f" {table[i][j]} | "
+            
+            self.output_text.insert(tk.END, row + "\n")
+            self.output_text.insert(tk.END, "-" * (len(row)) + "\n")
 
 if __name__ == "__main__":
     root = tk.Tk()
